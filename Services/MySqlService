@@ -1,0 +1,10 @@
+using MySql.Data;
+using MySql.Data.MySqlClient;
+
+namespace DriverCRUD.Services;
+
+public static class MySqlService
+{
+
+
+}
