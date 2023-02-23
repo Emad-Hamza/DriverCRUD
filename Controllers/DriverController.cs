@@ -21,8 +21,6 @@ public class DriverController : ControllerBase
     public DriverController(IConfiguration AppConfig)
     {
         this.AppConfig = AppConfig;
-
-
     }
 
     [HttpGet(Name = "GetDrivers")]
@@ -69,13 +67,8 @@ public class DriverController : ControllerBase
                     // Connection could not be made, throw an error
 
                     throw new Exception("The database connection state is Closed");
-                    return "2";
-                    break;
-
                 default:
-                    return "3";
                     // Connection is actively doing something else
-
                     break;
 
             }
@@ -97,7 +90,7 @@ public class DriverController : ControllerBase
         catch (Exception exception)
 
         {
-
+            throw exception;
             // Use the exception object to handle all other non-MySql specific errors
 
         }
@@ -119,7 +112,6 @@ public class DriverController : ControllerBase
             }
 
         }
-        // Console.WriteLine(driversList.Count.ToString());
         string jsonString = JsonSerializer.Serialize(driversList);
         return jsonString;
 
