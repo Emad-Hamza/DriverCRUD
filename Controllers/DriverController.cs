@@ -36,6 +36,7 @@ public class DriverController : ControllerBase
     [SwaggerOperation(
     Summary = "Returns a list of drivers in alphabetical order"
     )]
+    [SwaggerResponse(500, "Database connection error.")]
     public ActionResult<List<Driver>> index()
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -66,11 +67,13 @@ public class DriverController : ControllerBase
         catch (MySql.Data.MySqlClient.MySqlException mySqlException)
         {
             Console.WriteLine(mySqlException.Data);
+            return StatusCode(500);
         }
 
         catch (Exception exception)
         {
-            throw exception;
+            Console.WriteLine(exception.Data);
+            return StatusCode(500);
 
         }
 
@@ -98,6 +101,7 @@ public class DriverController : ControllerBase
     [HttpGet("{Id}")]
     [SwaggerResponse(200, "", typeof(Driver))]
     [SwaggerResponse(404, "The driver was not found.")]
+    [SwaggerResponse(500, "Database connection error.")]
     public ActionResult<Driver> get(int Id)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -107,29 +111,48 @@ public class DriverController : ControllerBase
         string sql = "SELECT * FROM drivers WHERE id = @Id";
         MySqlCommand cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Id", Id);
-        conn.Open();
-        MySqlDataReader rdr = cmd.ExecuteReader();
-        while (rdr.Read())
+        try
         {
-            Console.WriteLine(sql);
-            // return Convert.ToString(rdr["first_name"]);
-            Driver driver = new Driver();
-            driver.Id = Convert.ToInt64(rdr["id"]);
-            driver.FirstName = Convert.ToString(rdr["first_name"]);
-            driver.LastName = Convert.ToString(rdr["last_name"]);
-            driver.Email = Convert.ToString(rdr["email"]);
-            driver.PhoneNumber = Convert.ToString(rdr["phone_number"]);
-            conn.Close();
-            return driver;
+            conn.Open();
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            while (rdr.Read())
+            {
+                // return Convert.ToString(rdr["first_name"]);
+                Driver driver = new Driver();
+                driver.Id = Convert.ToInt64(rdr["id"]);
+                driver.FirstName = Convert.ToString(rdr["first_name"]);
+                driver.LastName = Convert.ToString(rdr["last_name"]);
+                driver.Email = Convert.ToString(rdr["email"]);
+                driver.PhoneNumber = Convert.ToString(rdr["phone_number"]);
+                conn.Close();
+                return driver;
+            }
+
+            return NotFound();
+        }
+        catch (MySql.Data.MySqlClient.MySqlException mySqlException)
+        {
+            Console.WriteLine(mySqlException.Data);
+            return StatusCode(500);
         }
 
-        return NotFound();
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Data);
+            return StatusCode(500);
+
+        }
+
+
+
     }
 
     [HttpGet("getAlphabetalizedName/{Id}")]
     [SwaggerOperation(
     Summary = "Returns a certain driver's full name alphabetized. (Use one of the drivers ID in the /Driver API)"
     )]
+    [SwaggerResponse(200, "The driver's name alphabetalized.", typeof(string))]
+    [SwaggerResponse(500, "Database connection error.")]
     public ActionResult<string> getAlphabetalizedName(int Id)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -139,25 +162,49 @@ public class DriverController : ControllerBase
         string sql = "SELECT * FROM drivers WHERE id = @Id";
         MySqlCommand cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Id", Id);
-        conn.Open();
-        MySqlDataReader rdr = cmd.ExecuteReader();
-        while (rdr.Read())
+        try
         {
-            // return Convert.ToString(rdr["first_name"]);
-            Driver driver = new Driver();
-            driver.FirstName = String.Concat(Convert.ToString(rdr["first_name"]).OrderBy(ch => ch));
-            driver.LastName = String.Concat(Convert.ToString(rdr["last_name"]).OrderBy(ch => ch));
-            conn.Close();
-            return driver.FirstName + " " + driver.LastName;
+            conn.Open();
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            while (rdr.Read())
+            {
+                // return Convert.ToString(rdr["first_name"]);
+                Driver driver = new Driver();
+                driver.FirstName = String.Concat(Convert.ToString(rdr["first_name"]));
+                driver.LastName = String.Concat(Convert.ToString(rdr["last_name"]));
+                // the name in the sample.
+                Console.WriteLine(sortStringCaseInsensitively("Oliver"));
+                Console.WriteLine(sortStringCaseInsensitively("Johnson"));
+
+                conn.Close();
+
+                driver.FirstName = sortStringCaseInsensitively(driver.FirstName);
+                driver.LastName = sortStringCaseInsensitively(driver.LastName);
+                return driver.FirstName + " " + driver.LastName;
+            }
+
+            return NotFound();
+        }
+        catch (MySql.Data.MySqlClient.MySqlException mySqlException)
+        {
+            Console.WriteLine(mySqlException.Source);
+            return StatusCode(500);
         }
 
-        return NotFound();
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Source);
+            return StatusCode(500);
+
+        }
+
     }
 
 
     [HttpPost("new")]
     [SwaggerResponse(201, "", typeof(Driver))]
     [SwaggerResponse(400, "")]
+    [SwaggerResponse(500, "Database connection error.")]
     public ActionResult<Driver> create([FromBody] NewDriverBody driver)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -170,12 +217,27 @@ public class DriverController : ControllerBase
         cmd.Parameters.AddWithValue("@last_name", driver.LastName);
         cmd.Parameters.AddWithValue("@email", driver.Email);
         cmd.Parameters.AddWithValue("@phone_number", driver.PhoneNumber);
-        conn.Open();
-        if (cmd.ExecuteNonQuery() > 0)
+        try
         {
-            return Created("", driver);
+            conn.Open();
+            if (cmd.ExecuteNonQuery() > 0)
+            {
+                return Created("", driver);
+            }
+            return BadRequest();
         }
-        return BadRequest();
+        catch (MySql.Data.MySqlClient.MySqlException mySqlException)
+        {
+            Console.WriteLine(mySqlException.Data);
+            return StatusCode(500);
+        }
+
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Data);
+            return StatusCode(500);
+
+        }
 
     }
 
@@ -183,6 +245,7 @@ public class DriverController : ControllerBase
     [SwaggerResponse(200, "", typeof(Driver))]
     [SwaggerResponse(404, "The driver was not found.")]
     [SwaggerResponse(400, "")]
+    [SwaggerResponse(500, "Database connection error.")]
     public ActionResult<Driver> edit(int Id, [FromBody] UpdateDriverBody updateDriverBody)
     {
         if (updateDriverBody != null)
@@ -193,80 +256,96 @@ public class DriverController : ControllerBase
             string readSql = "SELECT * FROM drivers WHERE id = @Id";
             MySqlCommand readCmd = new MySqlCommand(readSql, conn);
             readCmd.Parameters.AddWithValue("@Id", Id);
-            conn.Open();
-            MySqlDataReader rdr = readCmd.ExecuteReader();
-            if (rdr.Read())
-            {
-                rdr.Close();
-            }
-            else
-            {
-                return NotFound();
-            }
 
-            string updateSql = "UPDATE drivers SET";
-            MySqlCommand updateCmd = new MySqlCommand(null, conn);
 
-            string updateStatements = null;
-            if (updateDriverBody.FirstName != null)
+            try
             {
-                updateStatements += " first_name = @first_name,";
-                updateCmd.Parameters.AddWithValue("@first_name", updateDriverBody.FirstName);
-            }
-            if (updateDriverBody.LastName != null)
-            {
-                updateStatements += " last_name = @last_name,";
-                updateCmd.Parameters.AddWithValue("@last_name", updateDriverBody.LastName);
-            }
-            if (updateDriverBody.Email != null)
-            {
-                updateStatements += " email = @email,";
-                updateCmd.Parameters.AddWithValue("@email", updateDriverBody.Email);
-            }
-
-            if (updateDriverBody.PhoneNumber != null)
-            {
-                updateStatements += " phone_number = @phone_number,";
-                updateCmd.Parameters.AddWithValue("@phone_number", updateDriverBody.PhoneNumber);
-
-            }
-
-            if (updateStatements.EndsWith(','))
-            {
-                updateStatements = updateStatements.Remove(updateStatements.Length - 1, 1);
-                // Console.WriteLine(updateStatements);
-            }
-
-            updateSql += updateStatements + " WHERE id = @Id";
-            updateCmd.Parameters.AddWithValue("@Id", Id);
-            updateCmd.CommandText = updateSql;
-
-            if (updateCmd.ExecuteNonQuery() > 0)
-            {
-                rdr = readCmd.ExecuteReader();
+                conn.Open();
+                MySqlDataReader rdr = readCmd.ExecuteReader();
                 if (rdr.Read())
                 {
-                    Driver driver = new Driver();
-                    driver.Id = Convert.ToInt64(rdr["id"]);
-                    driver.FirstName = Convert.ToString(rdr["first_name"]);
-                    driver.LastName = Convert.ToString(rdr["last_name"]);
-                    driver.Email = Convert.ToString(rdr["email"]);
-                    driver.PhoneNumber = Convert.ToString(rdr["phone_number"]);
-                    conn.Close();
-                    return driver;
+                    rdr.Close();
                 }
                 else
                 {
                     return NotFound();
                 }
 
+                string updateSql = "UPDATE drivers SET";
+                MySqlCommand updateCmd = new MySqlCommand(null, conn);
+
+                string updateStatements = null;
+                if (updateDriverBody.FirstName != null)
+                {
+                    updateStatements += " first_name = @first_name,";
+                    updateCmd.Parameters.AddWithValue("@first_name", updateDriverBody.FirstName);
+                }
+                if (updateDriverBody.LastName != null)
+                {
+                    updateStatements += " last_name = @last_name,";
+                    updateCmd.Parameters.AddWithValue("@last_name", updateDriverBody.LastName);
+                }
+                if (updateDriverBody.Email != null)
+                {
+                    updateStatements += " email = @email,";
+                    updateCmd.Parameters.AddWithValue("@email", updateDriverBody.Email);
+                }
+
+                if (updateDriverBody.PhoneNumber != null)
+                {
+                    updateStatements += " phone_number = @phone_number,";
+                    updateCmd.Parameters.AddWithValue("@phone_number", updateDriverBody.PhoneNumber);
+
+                }
+
+                if (updateStatements.EndsWith(','))
+                {
+                    updateStatements = updateStatements.Remove(updateStatements.Length - 1, 1);
+                    // Console.WriteLine(updateStatements);
+                }
+
+                updateSql += updateStatements + " WHERE id = @Id";
+                updateCmd.Parameters.AddWithValue("@Id", Id);
+                updateCmd.CommandText = updateSql;
+
+                if (updateCmd.ExecuteNonQuery() > 0)
+                {
+                    rdr = readCmd.ExecuteReader();
+                    if (rdr.Read())
+                    {
+                        Driver driver = new Driver();
+                        driver.Id = Convert.ToInt64(rdr["id"]);
+                        driver.FirstName = Convert.ToString(rdr["first_name"]);
+                        driver.LastName = Convert.ToString(rdr["last_name"]);
+                        driver.Email = Convert.ToString(rdr["email"]);
+                        driver.PhoneNumber = Convert.ToString(rdr["phone_number"]);
+                        conn.Close();
+                        return driver;
+                    }
+                    else
+                    {
+                        return NotFound();
+                    }
+
+                }
+                else
+                {
+                    return BadRequest();
+
+                }
             }
-            else
+            catch (MySql.Data.MySqlClient.MySqlException mySqlException)
             {
-                return BadRequest();
-
+                Console.WriteLine(mySqlException.Data);
+                return StatusCode(500);
             }
 
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception.Data);
+                return StatusCode(500);
+
+            }
 
         }
         else
@@ -283,7 +362,7 @@ public class DriverController : ControllerBase
     [SwaggerResponse(200, "")]
     [SwaggerResponse(404, "The driver was not found.")]
     [SwaggerResponse(400, "")]
-
+    [SwaggerResponse(500, "Database connection error.")]
     public IActionResult delete(int Id)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -293,12 +372,28 @@ public class DriverController : ControllerBase
         string sql = "DELETE FROM drivers WHERE id = @Id";
         MySqlCommand cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Id", Id);
-        conn.Open();
-        if (cmd.ExecuteNonQuery() > 0)
+        try
         {
-            return Ok("Deleted driver.");
+            conn.Open();
+            if (cmd.ExecuteNonQuery() > 0)
+            {
+                return Ok("Deleted driver.");
+            }
+            return NotFound();
         }
-        return NotFound();
+        catch (MySql.Data.MySqlClient.MySqlException mySqlException)
+        {
+            Console.WriteLine(mySqlException.Data);
+            return StatusCode(500);
+        }
+
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Data);
+            return StatusCode(500);
+
+        }
+
 
     }
 
@@ -307,18 +402,9 @@ public class DriverController : ControllerBase
     [HttpPost("batchCreate")]
     [SwaggerResponse(200, "")]
     [SwaggerResponse(400, "")]
+    [SwaggerResponse(500, "Database connection error.")]
     public IActionResult batchCreate()
     {
-
-        DataTable tbl = new DataTable();
-        tbl.Columns.Add(new DataColumn("id", typeof(Int64)));
-        tbl.Columns.Add(new DataColumn("first_name", typeof(string)));
-        tbl.Columns.Add(new DataColumn("last_name", typeof(string)));
-        tbl.Columns.Add(new DataColumn("email", typeof(string)));
-        tbl.Columns.Add(new DataColumn("phone_number", typeof(string)));
-
-        // Randomizer.Seed = new Random(100);
-
 
 
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -339,14 +425,113 @@ public class DriverController : ControllerBase
         }
         sql.Append(string.Join(",", Rows));
         sql.Append(";");
-        conn.Open();
-        MySqlCommand cmd = new MySqlCommand(sql.ToString(), conn);
-        cmd.CommandType = CommandType.Text;
-        if (cmd.ExecuteNonQuery() > 0)
+        try
         {
-            return Ok();
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(sql.ToString(), conn);
+            cmd.CommandType = CommandType.Text;
+            if (cmd.ExecuteNonQuery() > 0)
+            {
+                return Ok();
+
+            }
+            return BadRequest();
+        }
+        catch (MySql.Data.MySqlClient.MySqlException mySqlException)
+        {
+            Console.WriteLine(mySqlException.Data);
+            return StatusCode(500);
+        }
+
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Data);
+            return StatusCode(500);
 
         }
-        return BadRequest();
+
     }
+
+    // Function to return the sorted string
+    public static string sortStringCaseInsensitively(string s)
+    {
+        char[] arr = s.ToCharArray();
+        List<char> v1 = new List<char>();//lower case letters list
+        List<char> v2 = new List<char>();//upper case letters list
+        List<char> newList = new List<char>();
+        for (int k = 0; k < s.Length; k++)
+        {
+            if (Char.IsLower(arr[k]))
+            {
+                v1.Add(arr[k]);
+            }
+
+            if (Char.IsUpper(arr[k]))
+            {
+                v2.Add(arr[k]);
+            }
+        }
+
+
+        v1.Sort();
+        v2.Sort();
+
+        //two pointers 
+        int i = 0;
+        int j = 0;
+
+        while (i < v1.Count && j < v2.Count)
+        {
+
+            //if the letter in lowercase list is earlier than the letter in the uppercase list
+            if (string.Compare(v1[i].ToString(), v2[j].ToString().ToLower(), StringComparison.Ordinal)
+             < 0)
+            {
+                newList.Add(v1[i]);
+                i++;
+            }
+            //if the letter in uppercase list is earlier than the letter in the lowercase list
+            else if (string.Compare(v1[i].ToString(), v2[j].ToString().ToLower(), StringComparison.Ordinal)
+             > 0)
+            {
+                newList.Add(v2[j]);
+                j++;
+
+            }
+            //if they are both in the same position it add the uppercase letter firsts
+            else if (string.Compare(v1[i].ToString(), v2[j].ToString().ToLower(), StringComparison.Ordinal)
+             == 0)
+            {
+
+                newList.Add(v2[j]);
+                newList.Add(v1[i]);
+                j++;
+                i++;
+            }
+
+        }
+
+        //2 other while loops to check if the 2 lists have completely looped over
+        while (i < v1.Count)
+        {
+            newList.Add(v1[i]);
+            i++;
+        }
+
+        while (j < v2.Count)
+        {
+            newList.Add(v2[j]);
+            j++;
+        }
+
+        // return "z";
+        // for (int z = 0; z < newList.Count; z++)
+        // {
+        //     Console.WriteLine(newList[i]);
+        // }
+        return String.Join("", newList.ToArray());
+
+
+    }
+
 }

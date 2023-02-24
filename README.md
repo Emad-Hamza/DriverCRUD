@@ -14,7 +14,7 @@
 ```bash
 dotnet build
 ```
-2. Import the attached database driver_crud.sql on your mysql server
+2. Import the attached database file driver_crud.sql on your mysql server
 
 3. Change the database connection string accordingly in appsetings.json
 
