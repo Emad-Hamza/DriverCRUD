@@ -7,6 +7,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MySql.Data;
 using MySql.Data.MySqlClient;
+using Bogus;
+using Bogus.DataSets;
+using Bogus.Extensions;
+using System.Text;
 
 namespace DriverCRUD.Controllers;
 
@@ -16,11 +20,14 @@ public class DriverController : ControllerBase
 {
 
     private readonly IConfiguration AppConfig;
+    private static Faker faker;
 
 
     public DriverController(IConfiguration AppConfig)
     {
         this.AppConfig = AppConfig;
+        faker = new Faker();
+
     }
 
     [HttpGet]
@@ -251,4 +258,47 @@ public class DriverController : ControllerBase
 
 
 
+    [HttpPost("batchCreate")]
+    public IActionResult batchCreate()
+    {
+
+        DataTable tbl = new DataTable();
+        tbl.Columns.Add(new DataColumn("id", typeof(Int64)));
+        tbl.Columns.Add(new DataColumn("first_name", typeof(string)));
+        tbl.Columns.Add(new DataColumn("last_name", typeof(string)));
+        tbl.Columns.Add(new DataColumn("email", typeof(string)));
+        tbl.Columns.Add(new DataColumn("phone_number", typeof(string)));
+
+        // Randomizer.Seed = new Random(100);
+
+
+
+        MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
+
+        conn.ConnectionString = AppConfig.GetConnectionString("Default").ToString();
+
+        StringBuilder sql = new StringBuilder("INSERT INTO drivers (first_name, last_name, email, phone_number) VALUES ");
+
+        List<string> Rows = new List<string>();
+        for (int i = 0; i < 100; i++)
+        {
+            Rows.Add(string.Format("('{0}','{1}', '{2}', '{3}')",
+             MySqlHelper.EscapeString(faker.Name.FirstName()),
+              MySqlHelper.EscapeString(faker.Name.LastName()),
+              MySqlHelper.EscapeString(faker.Internet.Email(faker.Name.FirstName(), faker.Name.LastName())),
+              MySqlHelper.EscapeString(faker.Phone.PhoneNumber())
+              ));
+        }
+        sql.Append(string.Join(",", Rows));
+        sql.Append(";");
+        conn.Open();
+        MySqlCommand cmd = new MySqlCommand(sql.ToString(), conn);
+        cmd.CommandType = CommandType.Text;
+        if (cmd.ExecuteNonQuery() > 0)
+        {
+            return Ok();
+
+        }
+        return BadRequest();
+    }
 }
