@@ -11,6 +11,8 @@ using Bogus;
 using Bogus.DataSets;
 using Bogus.Extensions;
 using System.Text;
+using Swashbuckle.AspNetCore.Annotations;
+using System.Linq;
 
 namespace DriverCRUD.Controllers;
 
@@ -31,6 +33,9 @@ public class DriverController : ControllerBase
     }
 
     [HttpGet]
+    [SwaggerOperation(
+    Summary = "Returns a list of drivers in alphabetical order"
+    )]
     public ActionResult<List<Driver>> index()
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -40,7 +45,8 @@ public class DriverController : ControllerBase
 
         try
         {
-            string sql = "SELECT * FROM drivers";
+            //in alphabetical order 
+            string sql = "SELECT * FROM drivers ORDER BY first_name";
             MySqlCommand cmd = new MySqlCommand(sql, conn);
             conn.Open();
             MySqlDataReader rdr = cmd.ExecuteReader();
@@ -90,6 +96,8 @@ public class DriverController : ControllerBase
     }
 
     [HttpGet("{Id}")]
+    [SwaggerResponse(200, "", typeof(Driver))]
+    [SwaggerResponse(404, "The driver was not found.")]
     public ActionResult<Driver> get(int Id)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -118,7 +126,38 @@ public class DriverController : ControllerBase
         return NotFound();
     }
 
+    [HttpGet("getAlphabetalizedName/{Id}")]
+    [SwaggerOperation(
+    Summary = "Returns a certain driver's full name alphabetized. (Use one of the drivers ID in the /Driver API)"
+    )]
+    public ActionResult<string> getAlphabetalizedName(int Id)
+    {
+        MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
+
+        conn.ConnectionString = AppConfig.GetConnectionString("Default").ToString();
+
+        string sql = "SELECT * FROM drivers WHERE id = @Id";
+        MySqlCommand cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Id", Id);
+        conn.Open();
+        MySqlDataReader rdr = cmd.ExecuteReader();
+        while (rdr.Read())
+        {
+            // return Convert.ToString(rdr["first_name"]);
+            Driver driver = new Driver();
+            driver.FirstName = String.Concat(Convert.ToString(rdr["first_name"]).OrderBy(ch => ch));
+            driver.LastName = String.Concat(Convert.ToString(rdr["last_name"]).OrderBy(ch => ch));
+            conn.Close();
+            return driver.FirstName + " " + driver.LastName;
+        }
+
+        return NotFound();
+    }
+
+
     [HttpPost("new")]
+    [SwaggerResponse(201, "", typeof(Driver))]
+    [SwaggerResponse(400, "")]
     public ActionResult<Driver> create([FromBody] NewDriverBody driver)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -134,13 +173,16 @@ public class DriverController : ControllerBase
         conn.Open();
         if (cmd.ExecuteNonQuery() > 0)
         {
-            return Ok(driver);
+            return Created("", driver);
         }
         return BadRequest();
 
     }
 
     [HttpPatch("edit/{Id}")]
+    [SwaggerResponse(200, "", typeof(Driver))]
+    [SwaggerResponse(404, "The driver was not found.")]
+    [SwaggerResponse(400, "")]
     public ActionResult<Driver> edit(int Id, [FromBody] UpdateDriverBody updateDriverBody)
     {
         if (updateDriverBody != null)
@@ -238,6 +280,10 @@ public class DriverController : ControllerBase
 
 
     [HttpDelete("{Id}")]
+    [SwaggerResponse(200, "")]
+    [SwaggerResponse(404, "The driver was not found.")]
+    [SwaggerResponse(400, "")]
+
     public IActionResult delete(int Id)
     {
         MySqlConnection conn = new MySql.Data.MySqlClient.MySqlConnection();
@@ -259,6 +305,8 @@ public class DriverController : ControllerBase
 
 
     [HttpPost("batchCreate")]
+    [SwaggerResponse(200, "")]
+    [SwaggerResponse(400, "")]
     public IActionResult batchCreate()
     {
 
