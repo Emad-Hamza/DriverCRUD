@@ -3,10 +3,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DriverCRUD.Models;
 
-public class Driver
+public class NewDriverBody
 {
-    [Key]
-    public long Id { get; set; }
     [Required]
     public string? FirstName { get; set; }
     [Required]
